@@ -4,6 +4,7 @@
     "slug": "ble-api",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./icon.jpg",
     "scheme": "bleapi",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -20,6 +21,10 @@
     "android": {
       "edgeToEdgeEnabled": true,
       "package": "com.urbanogt5.bleapi",
+      "adaptiveIcon": {
+        "foregroundImage": "./icon.jpg",
+        "backgroundColor": "#ffffff"
+      },
       "permissions": [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
