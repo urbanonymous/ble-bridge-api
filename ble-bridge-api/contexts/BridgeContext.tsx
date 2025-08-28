@@ -3,6 +3,11 @@ import { BridgeService, BridgeStatus, BridgeMessage } from '@/services/BridgeSer
 import { BLEDeviceInfo, BLEStatus } from '@/services/BLEService';
 import { WebSocketStatus } from '@/services/WebSocketService';
 
+// Extend BridgeService type to include cleanup function
+interface ExtendedBridgeService extends BridgeService {
+  cleanup?: () => void;
+}
+
 interface LogEntry {
   id: string;
   timestamp: string;
@@ -14,7 +19,7 @@ interface LogEntry {
 
 interface BridgeContextType {
   // Bridge service instance
-  bridgeService: BridgeService | null;
+  bridgeService: ExtendedBridgeService | null;
   
   // Status
   bridgeStatus: BridgeStatus;
@@ -59,7 +64,7 @@ interface BridgeProviderProps {
 }
 
 export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
-  const [bridgeService, setBridgeService] = useState<BridgeService | null>(null);
+  const [bridgeService, setBridgeService] = useState<ExtendedBridgeService | null>(null);
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>({
     websocket: 'disconnected',
     ble: 'unknown',
@@ -71,135 +76,135 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [currentWebSocketUrl, setCurrentWebSocketUrl] = useState('ws://localhost:8080');
 
-  // Initialize bridge service
-  useEffect(() => {
-    const initBridge = async () => {
-      try {
+  // Create bridge service when needed (not immediately)
+  const createBridgeService = async (url: string): Promise<ExtendedBridgeService> => {
+    try {
+      addLog({
+        type: 'bridge',
+        direction: 'internal',
+        message: 'Initializing bridge service...',
+        data: { url },
+      });
+
+      const service = new BridgeService({
+        websocketUrl: url,
+        autoReconnect: true,
+        logMessages: true,
+      });
+
+      // Listen to bridge status changes
+      const unsubscribeStatus = service.addStatusListener((status) => {
+        setBridgeStatus(status);
+        
+        // Add status change log
         addLog({
           type: 'bridge',
           direction: 'internal',
-          message: 'Initializing bridge service...',
-          data: { url: currentWebSocketUrl },
+          message: 'Status Update',
+          data: status,
         });
+      });
 
-        const service = new BridgeService({
-          websocketUrl: currentWebSocketUrl,
-          autoReconnect: true,
-          logMessages: true,
+      // Listen to bridge messages
+      const unsubscribeMessages = service.addMessageListener((message) => {
+        addLog({
+          type: 'bridge',
+          direction: 'internal',
+          message: message.type,
+          data: message.payload,
         });
+      });
 
-        // Listen to bridge status changes
-        const unsubscribeStatus = service.addStatusListener((status) => {
-          setBridgeStatus(status);
-          
-          // Add status change log
-          addLog({
-            type: 'bridge',
-            direction: 'internal',
-            message: 'Status Update',
-            data: status,
-          });
-        });
+      // Listen to BLE device discoveries
+      const unsubscribeDevices = service.getBLEService().addDeviceListener((devices) => {
+        setBLEDevices(devices);
+      });
 
-        // Listen to bridge messages
-        const unsubscribeMessages = service.addMessageListener((message) => {
-          addLog({
-            type: 'bridge',
-            direction: 'internal',
-            message: message.type,
-            data: message.payload,
-          });
-        });
-
-        // Listen to BLE device discoveries
-        const unsubscribeDevices = service.getBLEService().addDeviceListener((devices) => {
-          setBLEDevices(devices);
-        });
-
-        // Listen to BLE status changes
-        const unsubscribeBLEStatus = service.getBLEService().addStatusListener((status) => {
-          setIsScanning(service.getBLEService().isScanning());
-          
-          if (status === 'connected') {
-            const device = service.getBLEService().getConnectedDevice();
-            if (device) {
-              setConnectedBLEDevice({
-                id: device.id,
-                name: device.name,
-                rssi: null,
-                isConnectable: true,
-              });
-            }
-          } else if (status === 'disconnected') {
-            setConnectedBLEDevice(null);
+      // Listen to BLE status changes
+      const unsubscribeBLEStatus = service.getBLEService().addStatusListener((status) => {
+        setIsScanning(service.getBLEService().isScanning());
+        
+        if (status === 'connected') {
+          const device = service.getBLEService().getConnectedDevice();
+          if (device) {
+            setConnectedBLEDevice({
+              id: device.id,
+              name: device.name,
+              rssi: null,
+              isConnectable: true,
+            });
           }
-        });
+        } else if (status === 'disconnected') {
+          setConnectedBLEDevice(null);
+        }
+      });
 
-        // Listen to WebSocket messages
-        const unsubscribeWS = service.getWebSocketService().addMessageListener((message) => {
-          addLog({
-            type: 'websocket',
-            direction: 'incoming',
-            message: message.type,
+      // Listen to WebSocket messages
+      const unsubscribeWS = service.getWebSocketService().addMessageListener((message) => {
+        addLog({
+          type: 'websocket',
+          direction: 'incoming',
+          message: message.type,
+          data: message.data,
+        });
+      });
+
+      // Listen to BLE messages
+      const unsubscribeBLE = service.getBLEService().addMessageListener((message) => {
+        addLog({
+          type: 'ble',
+          direction: 'outgoing',
+          message: 'BLE Notification',
+          data: {
+            deviceId: message.deviceId,
+            characteristic: message.characteristicUUID,
             data: message.data,
-          });
-        });
-
-        // Listen to BLE messages
-        const unsubscribeBLE = service.getBLEService().addMessageListener((message) => {
-          addLog({
-            type: 'ble',
-            direction: 'outgoing',
-            message: 'BLE Notification',
-            data: {
-              deviceId: message.deviceId,
-              characteristic: message.characteristicUUID,
-              data: message.data,
-            },
-          });
-        });
-
-        setBridgeService(service);
-
-        addLog({
-          type: 'bridge',
-          direction: 'internal',
-          message: 'Bridge service initialized successfully',
-          data: { url: currentWebSocketUrl },
-        });
-
-        // Cleanup function
-        return () => {
-          unsubscribeStatus();
-          unsubscribeMessages();
-          unsubscribeDevices();
-          unsubscribeBLEStatus();
-          unsubscribeWS();
-          unsubscribeBLE();
-        };
-      } catch (error) {
-        console.error('Failed to initialize bridge service:', error);
-        addLog({
-          type: 'error',
-          direction: 'internal',
-          message: 'Bridge initialization failed - BLE may not be available in Expo Go',
-          data: { 
-            error: error instanceof Error ? error.message : 'Unknown error',
-            solution: 'Use npx expo run:android or npx expo run:ios for full BLE support'
           },
         });
-        
-        // Set a fallback status
-        setBridgeStatus({
-          websocket: 'disconnected',
-          ble: 'unsupported',
-          bridgeActive: false,
-        });
-      }
-    };
+      });
 
-    initBridge();
-  }, []);
+      addLog({
+        type: 'bridge',
+        direction: 'internal',
+        message: 'Bridge service initialized successfully',
+        data: { url },
+      });
+
+      // Create extended service with cleanup function
+      const extendedService = service as ExtendedBridgeService;
+      extendedService.cleanup = () => {
+        unsubscribeStatus();
+        unsubscribeMessages();
+        unsubscribeDevices();
+        unsubscribeBLEStatus();
+        unsubscribeWS();
+        unsubscribeBLE();
+      };
+
+      setBridgeService(extendedService);
+      return extendedService;
+    } catch (error) {
+      console.error('Failed to initialize bridge service:', error);
+      addLog({
+        type: 'error',
+        direction: 'internal',
+        message: 'Bridge initialization failed - BLE may not be available in Expo Go',
+        data: { 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          solution: 'Use npx expo run:android or npx expo run:ios for full BLE support'
+        },
+      });
+      
+      // Set a fallback status
+      setBridgeStatus({
+        websocket: 'disconnected',
+        ble: 'unsupported',
+        bridgeActive: false,
+      });
+      
+      throw error;
+    }
+  };
 
   // Helper function to add logs
   const addLog = (log: Omit<LogEntry, 'id' | 'timestamp'>) => {
@@ -218,24 +223,29 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
 
   // WebSocket functions
   const connectWebSocket = async (url: string) => {
-    if (!bridgeService) throw new Error('Bridge service not initialized');
-    
+    console.log('🔍 connectWebSocket called with URL:', url);
     setCurrentWebSocketUrl(url);
     
-    // Update bridge service URL if needed
-    if (bridgeService.getWebSocketService().getStatus() === 'disconnected') {
-      // For now, we'll work with the existing service
-      // In a more sophisticated implementation, we might recreate the service with new URL
+    // Clean up existing bridge service if it exists
+    if (bridgeService) {
+      if (bridgeService.cleanup) {
+        bridgeService.cleanup();
+      }
+      await bridgeService.stopBridge();
     }
     
     addLog({
       type: 'websocket',
       direction: 'outgoing',
       message: 'Connecting to WebSocket',
-      data: { url },
+      data: { url, debug: 'URL passed to connectWebSocket' },
     });
     
-    await bridgeService.startBridge();
+    // Create new bridge service with the correct URL
+    console.log('🔍 Creating bridge service with URL:', url);
+    const newService = await createBridgeService(url);
+    console.log('🔍 Starting bridge with service URL:', newService.getWebSocketService().getConfig().url);
+    await newService.startBridge();
   };
 
   const disconnectWebSocket = async () => {
@@ -310,6 +320,15 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
     if (!bridgeService) return;
     await bridgeService.stopBridge();
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (bridgeService && bridgeService.cleanup) {
+        bridgeService.cleanup();
+      }
+    };
+  }, [bridgeService]);
 
   const value: BridgeContextType = {
     bridgeService,

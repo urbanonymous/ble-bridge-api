@@ -38,8 +38,13 @@ export class BLEService {
   private discoveredDevices: Map<string, BLEDeviceInfo> = new Map();
 
   constructor() {
-    this.manager = new BleManager();
-    this.initializeBLE();
+    try {
+      this.manager = new BleManager();
+      this.initializeBLE();
+    } catch (error) {
+      console.warn('BleManager initialization failed - BLE not available in this environment');
+      throw new Error('BLE not available - requires native build (npx expo run:android/ios)');
+    }
   }
 
   private async initializeBLE(): Promise<void> {

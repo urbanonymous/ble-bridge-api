@@ -36,6 +36,7 @@ export class WebSocketService {
         return;
       }
 
+      console.log('🔍 WebSocket connecting to URL:', this.config.url);
       this.setStatus('connecting');
       this.ws = new WebSocket(this.config.url);
 
@@ -104,6 +105,10 @@ export class WebSocketService {
 
   isConnected(): boolean {
     return this.status === 'connected';
+  }
+
+  getConfig(): WebSocketConfig {
+    return this.config;
   }
 
   addMessageListener(listener: (message: WebSocketMessage) => void): () => void {

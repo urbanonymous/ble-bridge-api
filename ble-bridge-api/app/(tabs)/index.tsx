@@ -1,36 +1,68 @@
-import React, { useState } from 'react';
-import { Alert, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Alert, StyleSheet, TextInput, TouchableOpacity, ScrollView, View, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { useBridge } from '@/contexts/BridgeContext';
 
 export default function WebSocketScreen() {
   const [websocketUrl, setWebsocketUrl] = useState('ws://localhost:8080');
-  const { 
-    bridgeStatus, 
-    isConnected, 
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info';
+    visible: boolean;
+  }>({ message: '', type: 'success', visible: false });
+  const slideAnim = useState(new Animated.Value(-100))[0];
+
+  const {
+    bridgeStatus,
+    isConnected,
     isFullyConnected,
-    connectWebSocket, 
+    connectWebSocket,
     disconnectWebSocket,
-    addLog 
+    addLog
   } = useBridge();
+
+  // Notification functions
+  const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
+    setNotification({ message, type, visible: true });
+    
+    // Slide in animation
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+    }).start();
+
+    // Auto hide after 3 seconds
+    setTimeout(() => {
+      hideNotification();
+    }, 3000);
+  };
+
+  const hideNotification = () => {
+    Animated.spring(slideAnim, {
+      toValue: -100,
+      useNativeDriver: true,
+    }).start(() => {
+      setNotification(prev => ({ ...prev, visible: false }));
+    });
+  };
 
   const handleConnect = async () => {
     try {
+      console.log('🔍 handleConnect called with websocketUrl:', websocketUrl);
       await connectWebSocket(websocketUrl);
-      Alert.alert('Success', 'Connected to WebSocket API and Bridge Service');
+      showNotification('Connected to WebSocket API and Bridge Service', 'success');
     } catch (error) {
-      Alert.alert('Error', `Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showNotification(`Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
   };
 
   const handleDisconnect = async () => {
     try {
       await disconnectWebSocket();
-      Alert.alert('Info', 'Disconnected from WebSocket API');
+      showNotification('Disconnected from WebSocket API', 'info');
     } catch (error) {
-      Alert.alert('Error', `Failed to disconnect: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showNotification(`Failed to disconnect: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -46,81 +78,112 @@ export default function WebSocketScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container}>
-        <ThemedView style={styles.content}>
-          <ThemedView style={styles.titleContainer}>
-            <ThemedText type="title">WebSocket Connection</ThemedText>
-          </ThemedView>
-
-          <ThemedView style={styles.section}>
-            <ThemedText type="subtitle">API Endpoint</ThemedText>
-            <TextInput
-              style={styles.input}
-              value={websocketUrl}
-              onChangeText={setWebsocketUrl}
-              placeholder="Enter WebSocket URL"
-              placeholderTextColor="#999"
-              editable={!isConnected}
-            />
-          </ThemedView>
-
-          <ThemedView style={styles.section}>
-            <ThemedText type="subtitle">Connection Status</ThemedText>
-            <ThemedView style={styles.statusContainer}>
-              <ThemedView style={[styles.statusDot, { backgroundColor: getStatusColor(bridgeStatus.websocket) }]} />
-              <ThemedText style={styles.statusText}>
-                WebSocket: {bridgeStatus.websocket}
-              </ThemedText>
-            </ThemedView>
-            <ThemedView style={styles.statusContainer}>
-              <ThemedView style={[styles.statusDot, { backgroundColor: getStatusColor(bridgeStatus.ble) }]} />
-              <ThemedText style={styles.statusText}>
-                BLE: {bridgeStatus.ble}
-              </ThemedText>
-            </ThemedView>
-            <ThemedView style={styles.statusContainer}>
-              <ThemedView style={[styles.statusDot, { backgroundColor: bridgeStatus.bridgeActive ? '#4CAF50' : '#9E9E9E' }]} />
-              <ThemedText style={styles.statusText}>
-                Bridge: {bridgeStatus.bridgeActive ? 'Active' : 'Inactive'}
-              </ThemedText>
-            </ThemedView>
-            <ThemedView style={styles.statusContainer}>
-              <ThemedView style={[styles.statusDot, { backgroundColor: isFullyConnected ? '#4CAF50' : '#9E9E9E' }]} />
-              <ThemedText style={styles.statusText}>
-                Full Bridge: {isFullyConnected ? 'Connected' : 'Inactive'}
-              </ThemedText>
-            </ThemedView>
-          </ThemedView>
-
-          <ThemedView style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.button, isConnected ? styles.buttonDisconnect : styles.buttonConnect]}
-              onPress={isConnected ? handleDisconnect : handleConnect}
-            >
-              <ThemedText style={styles.buttonText}>
-                {isConnected ? 'Disconnect' : 'Connect'}
-              </ThemedText>
+      {/* Notification Card */}
+      {notification.visible && (
+        <Animated.View 
+          style={[
+            styles.notificationCard,
+            notification.type === 'success' && styles.notificationSuccess,
+            notification.type === 'error' && styles.notificationError,
+            notification.type === 'info' && styles.notificationInfo,
+            { transform: [{ translateY: slideAnim }] }
+          ]}
+        >
+          <View style={styles.notificationContent}>
+            <ThemedText style={styles.notificationIcon}>
+              {notification.type === 'success' ? '✅' : 
+               notification.type === 'error' ? '❌' : 'ℹ️'}
+            </ThemedText>
+            <ThemedText style={styles.notificationText}>
+              {notification.message}
+            </ThemedText>
+            <TouchableOpacity onPress={hideNotification} style={styles.notificationClose}>
+              <ThemedText style={styles.notificationCloseText}>✕</ThemedText>
             </TouchableOpacity>
-          </ThemedView>
+          </View>
+        </Animated.View>
+      )}
+      
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <ThemedText style={styles.title}>WebSocket API</ThemedText>
+          </View>
+        </View>
 
-          <ThemedView style={styles.section}>
-            <ThemedText type="subtitle">Bridge Information</ThemedText>
-            <ThemedView style={styles.infoContainer}>
-              <ThemedText style={styles.infoText}>
-                • WebSocket connection for API communication
-              </ThemedText>
-              <ThemedText style={styles.infoText}>
-                • Bridge automatically connects to BLE service
-              </ThemedText>
-              <ThemedText style={styles.infoText}>
-                • View all communication logs in the "Logs" tab
-              </ThemedText>
-              <ThemedText style={styles.infoText}>
-                • Real-time bidirectional data bridging
-              </ThemedText>
-            </ThemedView>
-          </ThemedView>
-        </ThemedView>
+        <View style={styles.content}>
+          {/* API Configuration Card */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <ThemedText style={styles.cardTitle}>⚙️ API Configuration</ThemedText>
+            </View>
+            <View style={styles.cardContent}>
+              <ThemedText style={styles.inputLabel}>WebSocket URL</ThemedText>
+              <TextInput
+                style={[styles.input, !isConnected ? styles.inputActive : styles.inputDisabled]}
+                value={websocketUrl}
+                onChangeText={setWebsocketUrl}
+                placeholder="ws://localhost:8080"
+                placeholderTextColor="#94a3b8"
+                editable={!isConnected}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  isConnected ? styles.disconnectButton : styles.connectButton
+                ]}
+                onPress={isConnected ? handleDisconnect : handleConnect}
+                activeOpacity={0.8}
+              >
+                <ThemedText style={styles.primaryButtonText}>
+                  {isConnected ? '🔌 Disconnect' : '🚀 Connect to API'}
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Connection Status Card */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <ThemedText style={styles.cardTitle}>🔗 Connection Status</ThemedText>
+            </View>
+            <View style={styles.cardContent}>
+              <View style={styles.statusGrid}>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(bridgeStatus.websocket) }]} />
+                  <View style={styles.statusInfo}>
+                    <ThemedText style={styles.statusLabel}>WebSocket</ThemedText>
+                    <ThemedText style={styles.statusValue}>{bridgeStatus.websocket}</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(bridgeStatus.ble) }]} />
+                  <View style={styles.statusInfo}>
+                    <ThemedText style={styles.statusLabel}>BLE Device</ThemedText>
+                    <ThemedText style={styles.statusValue}>{bridgeStatus.ble}</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIndicator, { backgroundColor: bridgeStatus.bridgeActive ? '#4CAF50' : '#9E9E9E' }]} />
+                  <View style={styles.statusInfo}>
+                    <ThemedText style={styles.statusLabel}>Bridge</ThemedText>
+                    <ThemedText style={styles.statusValue}>{bridgeStatus.bridgeActive ? 'Active' : 'Inactive'}</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIndicator, { backgroundColor: isFullyConnected ? '#4CAF50' : '#9E9E9E' }]} />
+                  <View style={styles.statusInfo}>
+                    <ThemedText style={styles.statusLabel}>Full Bridge</ThemedText>
+                    <ThemedText style={styles.statusValue}>{isFullyConnected ? 'Connected' : 'Inactive'}</ThemedText>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -129,77 +192,175 @@ export default function WebSocketScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: '#f8fafc',
   },
   container: {
     flex: 1,
   },
+  header: {
+    backgroundColor: '#6366f1',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerContent: {
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#e2e8f0',
+    opacity: 0.9,
+  },
   content: {
     padding: 20,
   },
-  titleContainer: {
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  cardContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  statusGrid: {
+    gap: 16,
+  },
+  statusItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  input: {
+    backgroundColor: '#f8fafc',
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginTop: 8,
-    backgroundColor: 'white',
-    color: 'black',
+    borderColor: '#e2e8f0',
   },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  statusDot: {
+  statusIndicator: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    marginRight: 8,
+    marginRight: 12,
   },
-  statusText: {
+  statusInfo: {
+    flex: 1,
+  },
+  statusLabel: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 2,
+  },
+  statusValue: {
     fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    textTransform: 'capitalize',
   },
-  buttonContainer: {
-    marginBottom: 20,
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
   },
-  button: {
+  input: {
+    borderRadius: 12,
     padding: 16,
-    borderRadius: 8,
+    fontSize: 16,
+    marginBottom: 16,
+    fontFamily: 'monospace',
+  },
+  inputActive: {
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#3b82f6',
+    color: '#1e293b',
+  },
+  inputDisabled: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    color: '#64748b',
+  },
+  primaryButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  buttonConnect: {
-    backgroundColor: '#4CAF50',
+  connectButton: {
+    backgroundColor: '#10b981',
   },
-  buttonDisconnect: {
-    backgroundColor: '#F44336',
+  disconnectButton: {
+    backgroundColor: '#ef4444',
   },
-  buttonText: {
-    color: 'white',
+  primaryButtonText: {
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  infoContainer: {
-    backgroundColor: '#f0f8ff',
-    padding: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0f0ff',
-    marginTop: 10,
+  infoGrid: {
+    gap: 16,
   },
-  infoText: {
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  infoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f9ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  infoIconText: {
+    fontSize: 20,
+  },
+  infoContent: {
+    flex: 1,
+    paddingTop: 2,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  infoDescription: {
     fontSize: 14,
-    color: '#333',
-    marginBottom: 8,
+    color: '#64748b',
     lineHeight: 20,
   },
 });
