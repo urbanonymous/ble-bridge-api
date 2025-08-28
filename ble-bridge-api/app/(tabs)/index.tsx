@@ -11,7 +11,7 @@ export default function WebSocketScreen() {
     type: 'success' | 'error' | 'info';
     visible: boolean;
   }>({ message: '', type: 'success', visible: false });
-  const slideAnim = useState(new Animated.Value(-100))[0];
+  const slideAnim = useState(new Animated.Value(100))[0];
 
   const {
     bridgeStatus,
@@ -40,7 +40,7 @@ export default function WebSocketScreen() {
 
   const hideNotification = () => {
     Animated.spring(slideAnim, {
-      toValue: -100,
+      toValue: 100,
       useNativeDriver: true,
     }).start(() => {
       setNotification(prev => ({ ...prev, visible: false }));
@@ -362,5 +362,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     lineHeight: 20,
+  },
+  // Notification styles
+  notificationCard: {
+    position: 'absolute',
+    bottom: 100,
+    left: 16,
+    right: 16,
+    zIndex: 1000,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  notificationSuccess: {
+    backgroundColor: '#dcfce7',
+    borderLeftWidth: 4,
+    borderLeftColor: '#16a34a',
+  },
+  notificationError: {
+    backgroundColor: '#fef2f2',
+    borderLeftWidth: 4,
+    borderLeftColor: '#dc2626',
+  },
+  notificationInfo: {
+    backgroundColor: '#dbeafe',
+    borderLeftWidth: 4,
+    borderLeftColor: '#2563eb',
+  },
+  notificationContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  notificationIcon: {
+    fontSize: 18,
+    marginRight: 12,
+  },
+  notificationText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  notificationClose: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  notificationCloseText: {
+    fontSize: 16,
+    color: '#6b7280',
+    fontWeight: 'bold',
   },
 });
