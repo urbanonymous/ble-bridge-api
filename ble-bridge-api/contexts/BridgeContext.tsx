@@ -264,6 +264,10 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
   const startBLEScan = async () => {
     if (!bridgeService) throw new Error('Bridge service not initialized');
     
+    console.log('🔍 BridgeContext: startBLEScan called');
+    console.log('🔍 BridgeService exists:', !!bridgeService);
+    console.log('🔍 BLE Service status:', bridgeService.getBLEService().getStatus());
+    
     addLog({
       type: 'ble',
       direction: 'outgoing',
@@ -272,6 +276,7 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
     
     setBLEDevices([]);
     await bridgeService.getBLEService().startScanning(15000);
+    console.log('🔍 BridgeContext: startScanning completed');
   };
 
   const stopBLEScan = () => {

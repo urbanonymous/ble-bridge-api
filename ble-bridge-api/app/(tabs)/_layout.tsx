@@ -33,14 +33,14 @@ export default function TabLayout() {
         }),
       }}>
       <Tabs.Screen
-        name="index"
+        name="websocket"
         options={{
           title: 'WebSocket',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="wifi" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="ble-devices"
         options={{
           title: 'BLE Devices',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="antenna.radiowaves.left.and.right" color={color} />,

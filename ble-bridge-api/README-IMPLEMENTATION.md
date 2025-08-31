@@ -76,10 +76,6 @@ The bridge service supports these message types:
 
 ## Permissions
 
-### iOS
-- NSBluetoothAlwaysUsageDescription
-- NSBluetoothPeripheralUsageDescription
-
 ### Android
 - BLUETOOTH
 - BLUETOOTH_ADMIN  
@@ -93,9 +89,6 @@ The bridge service supports these message types:
 ```bash
 # Install dependencies
 bun install
-
-# Run on iOS
-bun run ios
 
 # Run on Android  
 bun run android
