@@ -155,6 +155,17 @@ export class BridgeService {
 
     try {
       switch (message.type) {
+        case 'connected':
+        case 'connection_status':
+          // Forward status messages to logs/bridge and ignore otherwise
+          this.sendBridgeMessage('status_update', {
+            websocket: this.websocketService.getStatus(),
+            ble: this.bleService.getStatus(),
+            bridgeActive: this.bridgeActive,
+            remote: message.data,
+          });
+          break;
+
         case 'device_scan_start':
           await this.bleService.startScanning(message.data?.duration || 10000);
           break;
@@ -237,7 +248,8 @@ export class BridgeService {
 
     try {
       // Send raw data to BLE device (we'll use the first writable characteristic found)
-      await this.sendRawDataToBLE(message.data);
+      // If message.isBinary is true, data is already base64; otherwise encode as base64
+      await this.sendRawDataToBLE(message.data, message.isBinary === true);
     } catch (error) {
       this.log('Error forwarding raw data to BLE:', error);
       this.sendBridgeMessage('error', {
@@ -249,7 +261,7 @@ export class BridgeService {
     }
   }
 
-  private async sendRawDataToBLE(data: string): Promise<void> {
+  private async sendRawDataToBLE(data: string, isAlreadyBase64: boolean = false): Promise<void> {
     // Validate input data
     if (!data || typeof data !== 'string') {
       throw new Error('Invalid data provided for BLE transmission');
@@ -275,8 +287,8 @@ export class BridgeService {
               dataLength: data.length
             });
 
-            // Convert string to base64 if needed (BLE expects base64)
-            const base64Data = btoa(data);
+            // Convert to base64 if needed (BLE expects base64)
+            const base64Data = isAlreadyBase64 ? data : btoa(data);
             
             await connectedDevice.writeCharacteristicWithResponseForService(
               service.uuid,

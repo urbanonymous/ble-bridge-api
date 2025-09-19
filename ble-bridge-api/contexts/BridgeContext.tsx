@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { BridgeService, BridgeStatus, BridgeMessage } from '@/services/BridgeService';
 import { BLEDeviceInfo, BLEStatus } from '@/services/BLEService';
 import { WebSocketStatus } from '@/services/WebSocketService';
+import { DEFAULT_WS_URL } from '@/constants/config';
 
 // Extend BridgeService type to include cleanup function
 interface ExtendedBridgeService extends BridgeService {
@@ -74,7 +75,7 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
   const [bleDevices, setBLEDevices] = useState<BLEDeviceInfo[]>([]);
   const [connectedBLEDevice, setConnectedBLEDevice] = useState<BLEDeviceInfo | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [currentWebSocketUrl, setCurrentWebSocketUrl] = useState('ws://localhost:8080');
+  const [currentWebSocketUrl, setCurrentWebSocketUrl] = useState(DEFAULT_WS_URL);
 
   // Create bridge service when needed (not immediately)
   const createBridgeService = async (url: string): Promise<ExtendedBridgeService> => {
@@ -267,7 +268,7 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
       console.log('🔍 Bridge service not initialized, initializing for BLE scan...');
       try {
         // Use a placeholder URL for BLE-only initialization
-        const newService = await createBridgeService('ws://placeholder:0');
+        const newService = await createBridgeService(DEFAULT_WS_URL);
         setBridgeService(newService);
         console.log('🔍 Bridge service initialized for BLE-only operation');
       } catch (error) {
@@ -277,7 +278,7 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
 
     console.log('🔍 BridgeContext: startBLEScan called');
     console.log('🔍 BridgeService exists:', !!bridgeService);
-    console.log('🔍 BLE Service status:', bridgeService.getBLEService().getStatus());
+    console.log('🔍 BLE Service status:', bridgeService ? bridgeService.getBLEService().getStatus() : 'unavailable');
 
     addLog({
       type: 'ble',
@@ -286,6 +287,7 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
     });
 
     setBLEDevices([]);
+    if (!bridgeService) return;
     await bridgeService.getBLEService().startScanning(15000);
     console.log('🔍 BridgeContext: startScanning completed');
   };
@@ -308,7 +310,7 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
       console.log('🔍 Bridge service not initialized, initializing for BLE connection...');
       try {
         // Use a placeholder URL for BLE-only initialization
-        const newService = await createBridgeService('ws://placeholder:0');
+        const newService = await createBridgeService(DEFAULT_WS_URL);
         setBridgeService(newService);
         console.log('🔍 Bridge service initialized for BLE-only operation');
       } catch (error) {
@@ -323,6 +325,7 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
       data: { deviceId },
     });
 
+    if (!bridgeService) return;
     await bridgeService.getBLEService().connectToDevice(deviceId);
   };
 

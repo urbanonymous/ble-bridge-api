@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/ThemedText';
 import { useBridge } from '@/contexts/BridgeContext';
+import { DEFAULT_WS_URL } from '@/constants/config';
 
 import { useNotifications } from './hooks/useNotifications';
 import { NotificationCard } from './components/NotificationCard';
@@ -11,7 +12,7 @@ import { ConfigurationCard } from './components/ConfigurationCard';
 import { styles } from './styles';
 
 export default function WebSocketScreen() {
-  const [websocketUrl, setWebsocketUrl] = useState('ws://localhost:8080');
+  const [websocketUrl, setWebsocketUrl] = useState(DEFAULT_WS_URL);
   
   const {
     bridgeStatus,

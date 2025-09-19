@@ -7,6 +7,7 @@ export interface WebSocketMessage {
 export interface WebSocketRawMessage {
   data: string;
   timestamp: number;
+  isBinary?: boolean; // when true, data is base64-encoded binary payload
 }
 
 export interface WebSocketConfig {
@@ -35,6 +36,15 @@ export class WebSocketService {
     };
   }
 
+  private bytesToBase64(bytes: Uint8Array): string {
+    let binaryString = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binaryString += String.fromCharCode(bytes[i]);
+    }
+    // btoa is available in React Native via JSCore
+    return btoa(binaryString);
+  }
+
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.ws?.readyState === WebSocket.OPEN) {
@@ -54,33 +64,75 @@ export class WebSocketService {
 
       this.ws.onmessage = (event) => {
         try {
-          // Check if event.data exists and is a string
-          if (!event.data || typeof event.data !== 'string') {
-            console.warn('[WebSocket] Received non-string data:', typeof event.data, event.data);
-            return;
+          // If data is already an object with a type, treat it as a JSON message
+          if (event && event.data && typeof event.data === 'object') {
+            const maybeObj: any = event.data;
+            // Node-like Buffer sent over WS may appear as { type: 'Buffer', data: [...] }
+            if (maybeObj && maybeObj.type === 'Buffer' && Array.isArray(maybeObj.data)) {
+              const base64 = this.bytesToBase64(Uint8Array.from(maybeObj.data));
+              const rawMessage: WebSocketRawMessage = {
+                data: base64,
+                isBinary: true,
+                timestamp: Date.now(),
+              };
+              console.log('[WebSocket] Binary buffer received, forwarding to BLE (base64)');
+              this.notifyRawMessageListeners(rawMessage);
+              return;
+            }
+
+            if (maybeObj && typeof maybeObj.byteLength === 'number') {
+              // ArrayBuffer
+              const base64 = this.bytesToBase64(new Uint8Array(maybeObj as ArrayBuffer));
+              const rawMessage: WebSocketRawMessage = {
+                data: base64,
+                isBinary: true,
+                timestamp: Date.now(),
+              };
+              console.log('[WebSocket] ArrayBuffer received, forwarding to BLE (base64)');
+              this.notifyRawMessageListeners(rawMessage);
+              return;
+            }
+
+            if (maybeObj && typeof maybeObj.type === 'string') {
+              const message: WebSocketMessage = {
+                type: maybeObj.type,
+                data: maybeObj.data ?? maybeObj,
+                timestamp: Date.now(),
+              };
+              console.log('[WebSocket] JSON object message received:', message.type);
+              this.notifyMessageListeners(message);
+              return;
+            }
           }
 
-          // Try to parse as JSON first (control messages)
-          const message: WebSocketMessage = JSON.parse(event.data);
-          console.log('[WebSocket] JSON message received:', message.type);
-          this.notifyMessageListeners(message);
-        } catch (error) {
-          // If JSON parsing fails, treat as raw data for BLE
-          if (!event.data || typeof event.data !== 'string') {
-            console.warn('[WebSocket] Cannot process non-string raw data:', typeof event.data, event.data);
-            return;
+          // If string, try parse as JSON first (control messages)
+          if (typeof event.data === 'string') {
+            try {
+              const message: WebSocketMessage = JSON.parse(event.data);
+              console.log('[WebSocket] JSON message received:', message.type);
+              this.notifyMessageListeners(message);
+              return;
+            } catch {
+              // Not JSON, treat as raw string
+              const rawMessage: WebSocketRawMessage = {
+                data: event.data,
+                isBinary: false,
+                timestamp: Date.now(),
+              };
+              console.log('[WebSocket] Raw string received, forwarding to BLE:', {
+                dataType: typeof event.data,
+                dataLength: event.data.length,
+                preview: event.data.length > 50 ? event.data.substring(0, 50) + '...' : event.data
+              });
+              this.notifyRawMessageListeners(rawMessage);
+              return;
+            }
           }
 
-          const rawMessage: WebSocketRawMessage = {
-            data: event.data,
-            timestamp: Date.now(),
-          };
-          console.log('[WebSocket] Raw data received, forwarding to BLE:', {
-            dataType: typeof event.data,
-            dataLength: event.data.length,
-            preview: event.data.length > 50 ? event.data.substring(0, 50) + '...' : event.data
-          });
-          this.notifyRawMessageListeners(rawMessage);
+          // Other data types are currently unsupported; log and ignore
+          console.warn('[WebSocket] Received unsupported data type:', typeof event.data, event.data);
+        } catch (e) {
+          console.error('[WebSocket] Error handling onmessage:', e);
         }
       };
 
