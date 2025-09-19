@@ -262,18 +262,29 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
 
   // BLE functions
   const startBLEScan = async () => {
-    if (!bridgeService) throw new Error('Bridge service not initialized');
-    
+    if (!bridgeService) {
+      // Initialize bridge service if not already done (for BLE-only operation)
+      console.log('🔍 Bridge service not initialized, initializing for BLE scan...');
+      try {
+        // Use a placeholder URL for BLE-only initialization
+        const newService = await createBridgeService('ws://placeholder:0');
+        setBridgeService(newService);
+        console.log('🔍 Bridge service initialized for BLE-only operation');
+      } catch (error) {
+        throw new Error(`Failed to initialize bridge for BLE scan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
     console.log('🔍 BridgeContext: startBLEScan called');
     console.log('🔍 BridgeService exists:', !!bridgeService);
     console.log('🔍 BLE Service status:', bridgeService.getBLEService().getStatus());
-    
+
     addLog({
       type: 'ble',
       direction: 'outgoing',
       message: 'Starting BLE scan',
     });
-    
+
     setBLEDevices([]);
     await bridgeService.getBLEService().startScanning(15000);
     console.log('🔍 BridgeContext: startScanning completed');
@@ -292,15 +303,26 @@ export const BridgeProvider: React.FC<BridgeProviderProps> = ({ children }) => {
   };
 
   const connectBLEDevice = async (deviceId: string) => {
-    if (!bridgeService) throw new Error('Bridge service not initialized');
-    
+    if (!bridgeService) {
+      // Initialize bridge service if not already done (for BLE-only operation)
+      console.log('🔍 Bridge service not initialized, initializing for BLE connection...');
+      try {
+        // Use a placeholder URL for BLE-only initialization
+        const newService = await createBridgeService('ws://placeholder:0');
+        setBridgeService(newService);
+        console.log('🔍 Bridge service initialized for BLE-only operation');
+      } catch (error) {
+        throw new Error(`Failed to initialize bridge for BLE connection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
     addLog({
       type: 'ble',
       direction: 'outgoing',
       message: 'Connecting to BLE device',
       data: { deviceId },
     });
-    
+
     await bridgeService.getBLEService().connectToDevice(deviceId);
   };
 

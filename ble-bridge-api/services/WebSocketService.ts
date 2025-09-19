@@ -4,6 +4,11 @@ export interface WebSocketMessage {
   timestamp: number;
 }
 
+export interface WebSocketRawMessage {
+  data: string;
+  timestamp: number;
+}
+
 export interface WebSocketConfig {
   url: string;
   reconnectInterval?: number;
@@ -19,6 +24,7 @@ export class WebSocketService {
   private reconnectAttempts = 0;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private messageListeners: ((message: WebSocketMessage) => void)[] = [];
+  private rawMessageListeners: ((message: WebSocketRawMessage) => void)[] = [];
   private statusListeners: ((status: WebSocketStatus) => void)[] = [];
 
   constructor(config: WebSocketConfig) {
@@ -48,10 +54,22 @@ export class WebSocketService {
 
       this.ws.onmessage = (event) => {
         try {
+          // Try to parse as JSON first (control messages)
           const message: WebSocketMessage = JSON.parse(event.data);
+          console.log('[WebSocket] JSON message received:', message.type);
           this.notifyMessageListeners(message);
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+          // If JSON parsing fails, treat as raw data for BLE
+          const rawMessage: WebSocketRawMessage = {
+            data: event.data,
+            timestamp: Date.now(),
+          };
+          console.log('[WebSocket] Raw data received, forwarding to BLE:', {
+            dataType: typeof event.data,
+            dataLength: event.data.length,
+            preview: event.data.substring(0, 50) + (event.data.length > 50 ? '...' : '')
+          });
+          this.notifyRawMessageListeners(rawMessage);
         }
       };
 
@@ -121,6 +139,16 @@ export class WebSocketService {
     };
   }
 
+  addRawMessageListener(listener: (message: WebSocketRawMessage) => void): () => void {
+    this.rawMessageListeners.push(listener);
+    return () => {
+      const index = this.rawMessageListeners.indexOf(listener);
+      if (index > -1) {
+        this.rawMessageListeners.splice(index, 1);
+      }
+    };
+  }
+
   addStatusListener(listener: (status: WebSocketStatus) => void): () => void {
     this.statusListeners.push(listener);
     return () => {
@@ -144,6 +172,16 @@ export class WebSocketService {
         listener(message);
       } catch (error) {
         console.error('Error in message listener:', error);
+      }
+    });
+  }
+
+  private notifyRawMessageListeners(message: WebSocketRawMessage): void {
+    this.rawMessageListeners.forEach(listener => {
+      try {
+        listener(message);
+      } catch (error) {
+        console.error('Error in raw message listener:', error);
       }
     });
   }

@@ -1,4 +1,4 @@
-import { WebSocketService, WebSocketMessage } from './WebSocketService';
+import { WebSocketService, WebSocketMessage, WebSocketRawMessage } from './WebSocketService';
 import { BLEService, BLEMessage, BLEDeviceInfo } from './BLEService';
 
 export interface BridgeConfig {
@@ -69,10 +69,17 @@ export class BridgeService {
   }
 
   private setupEventListeners(): void {
-    // WebSocket message listener
+    // WebSocket JSON message listener (control messages)
     this.subscriptions.push(
       this.websocketService.addMessageListener((message: WebSocketMessage) => {
         this.handleWebSocketMessage(message);
+      })
+    );
+
+    // WebSocket raw message listener (data for BLE)
+    this.subscriptions.push(
+      this.websocketService.addRawMessageListener((message: WebSocketRawMessage) => {
+        this.handleWebSocketRawMessage(message);
       })
     );
 
@@ -213,6 +220,66 @@ export class BridgeService {
         message: error instanceof Error ? error.message : 'Unknown error',
         originalMessage: message,
       });
+    }
+  }
+
+  private async handleWebSocketRawMessage(message: WebSocketRawMessage): Promise<void> {
+    this.log('Received raw WebSocket data, forwarding to BLE device:', {
+      dataLength: message.data.length,
+      preview: message.data.substring(0, 50) + (message.data.length > 50 ? '...' : '')
+    });
+
+    try {
+      // Send raw data to BLE device (we'll use the first writable characteristic found)
+      await this.sendRawDataToBLE(message.data);
+    } catch (error) {
+      this.log('Error forwarding raw data to BLE:', error);
+      this.sendBridgeMessage('error', {
+        message: `Failed to forward raw data to BLE: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        originalData: message.data.substring(0, 100) // Only log first 100 chars
+      });
+    }
+  }
+
+  private async sendRawDataToBLE(data: string): Promise<void> {
+    const connectedDevice = this.bleService.getConnectedDevice();
+    if (!connectedDevice) {
+      throw new Error('No BLE device connected');
+    }
+
+    try {
+      // Find the first writable characteristic
+      const services = await connectedDevice.services();
+      
+      for (const service of services) {
+        const characteristics = await service.characteristics();
+        
+        for (const char of characteristics) {
+          if (char.isWritableWithResponse || char.isWritableWithoutResponse) {
+            this.log(`📤 Writing raw data to BLE characteristic ${char.uuid.substring(0, 8)}`, {
+              serviceUUID: service.uuid.substring(0, 8),
+              characteristicUUID: char.uuid.substring(0, 8),
+              dataLength: data.length
+            });
+
+            // Convert string to base64 if needed (BLE expects base64)
+            const base64Data = btoa(data);
+            
+            await connectedDevice.writeCharacteristicWithResponseForService(
+              service.uuid,
+              char.uuid,
+              base64Data
+            );
+            
+            this.log('✅ Raw data sent to BLE device successfully');
+            return;
+          }
+        }
+      }
+      
+      throw new Error('No writable characteristics found on BLE device');
+    } catch (error) {
+      throw new Error(`Failed to send data to BLE: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

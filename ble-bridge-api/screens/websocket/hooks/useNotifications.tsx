@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Animated } from 'react-native';
 
 export interface NotificationState {
@@ -13,7 +13,7 @@ export const useNotifications = () => {
     type: 'success',
     visible: false
   });
-  const slideAnim = useState(new Animated.Value(100))[0];
+  const slideAnim = useRef(new Animated.Value(100)).current;
 
   const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
     setNotification({ message, type, visible: true });
