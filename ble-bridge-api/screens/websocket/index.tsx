@@ -8,7 +8,6 @@ import { useNotifications } from './hooks/useNotifications';
 import { NotificationCard } from './components/NotificationCard';
 import { StatusCard } from './components/StatusCard';
 import { ConfigurationCard } from './components/ConfigurationCard';
-import { InfoCard } from './components/InfoCard';
 import { styles } from './styles';
 
 export default function WebSocketScreen() {
@@ -61,10 +60,6 @@ export default function WebSocketScreen() {
         </View>
 
         <View style={styles.content}>
-          <StatusCard
-            bridgeStatus={bridgeStatus}
-            isFullyConnected={isFullyConnected}
-          />
 
           <ConfigurationCard
             websocketUrl={websocketUrl}
@@ -73,8 +68,11 @@ export default function WebSocketScreen() {
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
           />
+          <StatusCard
+            bridgeStatus={bridgeStatus}
+            isFullyConnected={isFullyConnected}
+          />
 
-          <InfoCard />
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -10,7 +10,7 @@ export const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#6366f1',
-    paddingVertical: 24,
+    paddingVertical: 20,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -24,7 +24,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#ffffff',
     marginBottom: 4,
@@ -53,7 +53,7 @@ export const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1e293b',
   },
@@ -65,13 +65,13 @@ export const styles = StyleSheet.create({
 
 export const statusStyles = StyleSheet.create({
   statusGrid: {
-    gap: 16,
+    gap: 12,
   },
   statusItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
-    padding: 16,
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -86,12 +86,12 @@ export const statusStyles = StyleSheet.create({
     flex: 1,
   },
   statusLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#64748b',
     marginBottom: 2,
   },
   statusValue: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#1e293b',
     textTransform: 'capitalize',
@@ -100,7 +100,7 @@ export const statusStyles = StyleSheet.create({
 
 export const configStyles = StyleSheet.create({
   inputLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#374151',
     marginBottom: 8,
@@ -108,7 +108,7 @@ export const configStyles = StyleSheet.create({
   input: {
     borderRadius: 12,
     padding: 16,
-    fontSize: 16,
+    fontSize: 14,
     marginBottom: 16,
     fontFamily: 'monospace',
   },
@@ -125,7 +125,7 @@ export const configStyles = StyleSheet.create({
     color: '#64748b',
   },
   primaryButton: {
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',

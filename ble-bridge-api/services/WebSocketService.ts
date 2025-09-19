@@ -54,12 +54,23 @@ export class WebSocketService {
 
       this.ws.onmessage = (event) => {
         try {
+          // Check if event.data exists and is a string
+          if (!event.data || typeof event.data !== 'string') {
+            console.warn('[WebSocket] Received non-string data:', typeof event.data, event.data);
+            return;
+          }
+
           // Try to parse as JSON first (control messages)
           const message: WebSocketMessage = JSON.parse(event.data);
           console.log('[WebSocket] JSON message received:', message.type);
           this.notifyMessageListeners(message);
         } catch (error) {
           // If JSON parsing fails, treat as raw data for BLE
+          if (!event.data || typeof event.data !== 'string') {
+            console.warn('[WebSocket] Cannot process non-string raw data:', typeof event.data, event.data);
+            return;
+          }
+
           const rawMessage: WebSocketRawMessage = {
             data: event.data,
             timestamp: Date.now(),
@@ -67,7 +78,7 @@ export class WebSocketService {
           console.log('[WebSocket] Raw data received, forwarding to BLE:', {
             dataType: typeof event.data,
             dataLength: event.data.length,
-            preview: event.data.substring(0, 50) + (event.data.length > 50 ? '...' : '')
+            preview: event.data.length > 50 ? event.data.substring(0, 50) + '...' : event.data
           });
           this.notifyRawMessageListeners(rawMessage);
         }

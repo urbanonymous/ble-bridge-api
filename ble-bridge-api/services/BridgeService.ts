@@ -224,9 +224,15 @@ export class BridgeService {
   }
 
   private async handleWebSocketRawMessage(message: WebSocketRawMessage): Promise<void> {
+    // Check if message.data is a valid string
+    if (!message.data || typeof message.data !== 'string') {
+      this.log('Received invalid raw WebSocket data:', typeof message.data, message.data);
+      return;
+    }
+
     this.log('Received raw WebSocket data, forwarding to BLE device:', {
       dataLength: message.data.length,
-      preview: message.data.substring(0, 50) + (message.data.length > 50 ? '...' : '')
+      preview: message.data.length > 50 ? message.data.substring(0, 50) + '...' : message.data
     });
 
     try {
@@ -236,12 +242,19 @@ export class BridgeService {
       this.log('Error forwarding raw data to BLE:', error);
       this.sendBridgeMessage('error', {
         message: `Failed to forward raw data to BLE: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        originalData: message.data.substring(0, 100) // Only log first 100 chars
+        originalData: message.data && typeof message.data === 'string'
+          ? (message.data.length > 100 ? message.data.substring(0, 100) + '...' : message.data)
+          : 'Invalid data received'
       });
     }
   }
 
   private async sendRawDataToBLE(data: string): Promise<void> {
+    // Validate input data
+    if (!data || typeof data !== 'string') {
+      throw new Error('Invalid data provided for BLE transmission');
+    }
+
     const connectedDevice = this.bleService.getConnectedDevice();
     if (!connectedDevice) {
       throw new Error('No BLE device connected');
